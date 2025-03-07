@@ -1,7 +1,8 @@
 # File: global.R
 # Install required packages if missing
 required_packages <- c("shiny", "dplyr", "httr", "jsonlite", "memoise", 
-                      "digest", "data.table", "sf", "dotenv")
+                      "digest", "data.table", "sf", "dotenv", "hexbin",
+                      "viridis", "lubridate", "scales", "shinyWidgets")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 
@@ -15,6 +16,11 @@ library(digest)
 library(data.table)
 library(sf)
 library(dotenv)
+library(shinyWidgets)
+library(hexbin)
+library(viridis)
+library(lubridate)
+library(scales)
 
 # Load environment variables
 if (file.exists(".env")) {

@@ -2,6 +2,7 @@
 library(shiny)
 library(leaflet)
 library(shinyjs)
+library(shinyWidgets)
 
 ui <- fluidPage(
   useShinyjs(),
@@ -178,7 +179,7 @@ ui <- fluidPage(
     "))
   ),
   
-  titlePanel("Nova Scotia Housing Dashboard"),
+  titlePanel("Nova Scotia Housing Wizard"),
   
   sidebarLayout(
     sidebarPanel(
@@ -206,7 +207,7 @@ ui <- fluidPage(
                                "Select radius (meters):", 
                                min = 100,
                                max = 1000,
-                               value = 200,
+                               value = 500,
                                step = 100)
                  ),
                  
@@ -230,12 +231,9 @@ ui <- fluidPage(
                    textInput("sale_postal_code_3digit", "Enter 3-digit Postal Code:")
                  ),
                  
-                 actionButton("find_sales", "Find Sales", 
-                              class = "btn-blue",
-                              style = "width: 100%;"),
                  actionButton("clear_sale", "Clear", 
                               class = "btn-secondary",
-                              style = "width: 100%; margin-top: 10px;")
+                              style = "width: 100%;")
         )
       ),
       
@@ -284,69 +282,93 @@ ui <- fluidPage(
                    }
                  ")),
                  div(class = "buyer-profiles",
-                   radioButtons("buyer_profile", "",
-                              choices = c(
-                                "Young Professional/Couple" = "young_prof",
-                                "New Family" = "new_family",
-                                "Family with Children" = "family",
-                                "Retiree" = "retiree"
-                              ),
-                              selected = character(0))
+                     radioButtons("buyer_profile", "",
+                                  choices = c(
+                                    "Young Professional/Couple" = "young_prof",
+                                    "New Family" = "new_family",
+                                    "Family with Children" = "family",
+                                    "Retiree" = "retiree"
+                                  ),
+                                  selected = character(0))
                  ),
                  
                  conditionalPanel(
                    condition = "input.buyer_profile",
                    sliderInput("nearby_matches", "Number of nearby matches:", 
-                              min = 10, max = 500, 
-                              value = 100, step = 10),
+                               min = 10, max = 500, 
+                               value = 100, step = 10),
                    
                    sliderInput("find_price_range", "Price Range:", 
-                              min = sales_res_char_assess$price_range[1], 
-                              max = sales_res_char_assess$price_range[2],
-                              value = c(sales_res_char_assess$price_range[1], sales_res_char_assess$price_range[2]),
-                              step = 10000, pre = "$"),
+                               min = sales_res_char_assess$price_range[1], 
+                               max = sales_res_char_assess$price_range[2],
+                               value = c(sales_res_char_assess$price_range[1], sales_res_char_assess$price_range[2]),
+                               step = 10000, pre = "$"),
                    
                    sliderInput("find_sqft_range", "Square Footage Range:", 
-                              min = sales_res_char_assess$sqft_range[1],
-                              max = sales_res_char_assess$sqft_range[2],
-                              value = c(sales_res_char_assess$sqft_range[1], sales_res_char_assess$sqft_range[2]),
-                              step = 100, post = " sqft"),
+                               min = sales_res_char_assess$sqft_range[1],
+                               max = sales_res_char_assess$sqft_range[2],
+                               value = c(sales_res_char_assess$sqft_range[1], sales_res_char_assess$sqft_range[2]),
+                               step = 100, post = " sqft"),
                    
                    sliderInput("find_bedrooms_range", "Number of Bedrooms (6+ means 6 or more):", 
-                              min = sales_res_char_assess$bedrooms_range[1],
-                              max = 6,
-                              value = c(sales_res_char_assess$bedrooms_range[1], 6),
-                              step = 1,
-                              post = "+"),
+                               min = sales_res_char_assess$bedrooms_range[1],
+                               max = 6,
+                               value = c(sales_res_char_assess$bedrooms_range[1], 6),
+                               step = 1,
+                               post = "+"),
                    
                    sliderInput("find_bathrooms_range", "Number of Bathrooms (6+ means 6 or more):", 
-                              min = sales_res_char_assess$bathrooms_range[1],
-                              max = 6,
-                              value = c(sales_res_char_assess$bathrooms_range[1], 6),
-                              step = 1,
-                              post = "+"),
+                               min = sales_res_char_assess$bathrooms_range[1],
+                               max = 6,
+                               value = c(sales_res_char_assess$bathrooms_range[1], 6),
+                               step = 1,
+                               post = "+"),
                    
                    # Hidden inputs for filters handled by profile selection
                    tags$div(style="display: none;",
-                     selectInput("find_garage", "Garage:", 
-                                choices = c("Any", "Yes", "No")),
-                     selectInput("find_finished_basement", "Finished Basement:", 
-                                choices = c("Any", "Yes", "No")),
-                     selectInput("find_construction_grade", "Construction Grade:", 
-                                choices = c("Any", "Excellent", "Very Good", "Good", 
-                                          "Average", "Fair", "Low"))
+                            selectInput("find_garage", "Garage:", 
+                                        choices = c("Any", "Yes", "No")),
+                            selectInput("find_finished_basement", "Finished Basement:", 
+                                        choices = c("Any", "Yes", "No")),
+                            selectInput("find_construction_grade", "Construction Grade:", 
+                                        choices = c("Any", "Excellent", "Very Good", "Good", 
+                                                    "Average", "Fair", "Low"))
                    ),
                    
                    sliderInput("find_year_built_range", "Year Built Range:", 
-                              min = sales_res_char_assess$year_built_range[1],
-                              max = sales_res_char_assess$year_built_range[2],
-                              value = c(sales_res_char_assess$year_built_range[1], sales_res_char_assess$year_built_range[2]),
-                              step = 1)
+                               min = sales_res_char_assess$year_built_range[1],
+                               max = sales_res_char_assess$year_built_range[2],
+                               value = c(sales_res_char_assess$year_built_range[1], sales_res_char_assess$year_built_range[2]),
+                               step = 1)
                  ),
                  
                  actionButton("clear_find", "Clear Pin & Results", 
-                            class = "btn-secondary",
-                            style = "width: 100%;")
+                              class = "btn-secondary",
+                              style = "width: 100%;")
+        )
+      ),
+      
+      # Market Analytics inputs
+      conditionalPanel(
+        condition = "input.tabs == 'Market Analytics'",
+        div(class = "section-card",
+            tags$h4("Selection Area", class = "section-header"),
+            tags$div(class = "instruction-box",
+                     style = "text-align: center;",
+                     tags$i(class = "fas fa-map-marker-alt", 
+                            style = "color: var(--primary-color); margin-right: 8px;"),
+                     "Click on the map to analyze properties in a specific area"
+            ),
+            leafletOutput("map_analytics", height = "300px"),
+            div(style = "margin-top: 15px;",
+                sliderInput("analytics_radius", 
+                            "Selection Radius:", 
+                            min = 100,
+                            max = 2000,
+                            value = 1000,
+                            step = 100,
+                            post = " m")
+            )
         )
       )
     ),
@@ -354,7 +376,54 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         id = "tabs",
-        # Tab 1: Sale Finder
+        # Tab 1: Market Analytics
+        tabPanel(
+          "Market Analytics",
+          fluidRow(
+            # Full width for plots
+            column(
+              width = 12,
+              fluidRow(
+                # Top row with Price Trends and Seasonal Patterns
+                column(
+                  width = 6,
+                  div(class = "section-card",
+                      div(style = "display: flex; justify-content: space-between; align-items: center;",
+                          h4("Price Trends", class = "section-header", style = "margin: 0;"),
+                          div(style = "display: flex; gap: 10px;",
+                              materialSwitch("price_metric", "Show Median", status = "primary", right = TRUE)
+                          )
+                      ),
+                      plotOutput("price_trends_plot", height = "325px")
+                  )
+                ),
+                column(
+                  width = 6,
+                  div(class = "section-card",
+                      h4("Seasonal Price Patterns", class = "section-header"),
+                      plotOutput("seasonal_plot", height = "325px")
+                  )
+                )
+              ),
+              # Bottom row with Price/Assessment plot
+              fluidRow(
+                column(
+                  width = 12,
+                  div(class = "section-card",
+                      div(style = "display: flex; justify-content: space-between; align-items: center;",
+                          h4("Price/Assessment", class = "section-header", style = "margin: 0;"),
+                          div(style = "display: flex; gap: 10px;",
+                              materialSwitch("heatmap_type", "Hexagonal", status = "primary", right = TRUE)
+                          )
+                      ),
+                      plotOutput("heatmap_plot", height = "325px")
+                  )
+                )
+              )
+            )
+          )
+        ),
+        # Tab 2: Sale Finder
         tabPanel(
           "Sale Finder",
           div(id = "loading_sale", class = "loading",
@@ -369,15 +438,15 @@ ui <- fluidPage(
           leafletOutput("map_sale", height = "700px")
         ),
         
-        # Tab 2: Property Finder
+        # Tab 3: Property Finder
         tabPanel(
           "Property Finder",
           fluidRow(
             column(12,
                    tags$div(class = "map-instruction instruction-box",
-                           style = "text-align: center;",
-                           tags$i(class = "fas fa-map-marker-alt", style = "color: var(--primary-color); margin-right: 8px;"),
-                           "Click anywhere on the map to drop a pin and find nearby matching properties"
+                            style = "text-align: center;",
+                            tags$i(class = "fas fa-map-marker-alt", style = "color: var(--primary-color); margin-right: 8px;"),
+                            "Click anywhere on the map to drop a pin and find nearby matching properties"
                    ),
                    div(id = "loading_find", class = "loading",
                        div(class = "loading-wheel"),

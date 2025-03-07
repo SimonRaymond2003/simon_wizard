@@ -26,10 +26,13 @@ server <- function(input, output, session) {
   sale_data <- reactiveVal(NULL)        # Store sale finder results
   sale_selected_area <- reactiveVal(NULL)
   
+  analytics_coords <- reactiveVal(NULL)
+  analytics_data <- reactiveVal(NULL)
+  
   # Initialize maps
   output$map_sale <- renderLeaflet({
     leaflet() %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
+      addProviderTiles(providers$CartoDB.Voyager) %>%
       setView(lng = -63.582687, lat = 44.651070, zoom = 12)
   })
   
@@ -37,6 +40,12 @@ server <- function(input, output, session) {
     leaflet() %>%
       addProviderTiles(providers$CartoDB.Voyager) %>%
       setView(lng = -63.582687, lat = 44.651070, zoom = 12)
+  })
+  
+  output$map_analytics <- renderLeaflet({
+    leaflet() %>%
+      addProviderTiles(providers$CartoDB.Voyager) %>%
+      setView(lng = -63.582687, lat = 44.651070, zoom = 8)
   })
   
   # Property Finder pin dropping and auto-search
@@ -73,7 +82,7 @@ server <- function(input, output, session) {
           Bedrooms >= find_inputs$find_bedrooms_range[1],
           Bedrooms <= find_inputs$find_bedrooms_range[2],
           Bathrooms >= find_inputs$find_bathrooms_range[1],
-          Bathrooms <= find_inputs$find_bathrooms_range[2],
+          Bathrooms <= if(find_inputs$find_bathrooms_range[2] == 6) Inf else find_inputs$find_bathrooms_range[2],
           Year.Built >= find_inputs$find_year_built_range[1],
           Year.Built <= find_inputs$find_year_built_range[2]
         )
@@ -213,137 +222,91 @@ server <- function(input, output, session) {
     }
   })
   
-  # Handle buyer profile selection
-  observeEvent(input$buyer_profile, {
-    current_year <- as.integer(format(Sys.Date(), "%Y"))
-    
-    if (input$buyer_profile == "young_prof") {
-      # Young Professional/Couple - Modern, compact living
-      updateSliderInput(session, "nearby_matches", value = 100)
-      updateSliderInput(session, "find_price_range", 
-                       value = c(300000, 600000))
-      updateSliderInput(session, "find_sqft_range", 
-                       value = c(800, 1500))
-      updateSliderInput(session, "find_bedrooms_range", 
-                       value = c(1, 2))
-      updateSliderInput(session, "find_bathrooms_range", 
-                       value = c(1, 2))
-      updateSliderInput(session, "find_year_built_range", 
-                       value = c(current_year - 20, current_year))
-      updateSelectInput(session, "find_garage", selected = "Any")
-      updateSelectInput(session, "find_finished_basement", selected = "Any")
-      updateSelectInput(session, "find_construction_grade", 
-                       selected = "Any")
-      
-    } else if (input$buyer_profile == "new_family") {
-      # New Family - Modest but growing space needs
-      updateSliderInput(session, "nearby_matches", value = 100)
-      updateSliderInput(session, "find_price_range", 
-                       value = c(350000, 700000))
-      updateSliderInput(session, "find_sqft_range", 
-                       value = c(1200, 2000))
-      updateSliderInput(session, "find_bedrooms_range", 
-                       value = c(2, 3))
-      updateSliderInput(session, "find_bathrooms_range", 
-                       value = c(1, 3))
-      updateSliderInput(session, "find_year_built_range", 
-                       value = c(current_year - 30, current_year))
-      updateSelectInput(session, "find_garage", selected = "Yes")
-      updateSelectInput(session, "find_finished_basement", selected = "Any")
-      updateSelectInput(session, "find_construction_grade", 
-                       selected = "Any")
-      
-    } else if (input$buyer_profile == "family") {
-      # Family with Children - Spacious with amenities
-      updateSliderInput(session, "nearby_matches", value = 100)
-      updateSliderInput(session, "find_price_range", 
-                       value = c(450000, 1000000))
-      updateSliderInput(session, "find_sqft_range", 
-                       value = c(1800, 3500))
-      updateSliderInput(session, "find_bedrooms_range", 
-                       value = c(3, 5))
-      updateSliderInput(session, "find_bathrooms_range", 
-                       value = c(2, 4))
-      updateSliderInput(session, "find_year_built_range", 
-                       value = c(current_year - 40, current_year))
-      updateSelectInput(session, "find_garage", selected = "Yes")
-      updateSelectInput(session, "find_finished_basement", selected = "Yes")
-      updateSelectInput(session, "find_construction_grade", 
-                       selected = "Any")
-      
-    } else if (input$buyer_profile == "retiree") {
-      # Retiree - Comfortable, low maintenance
-      updateSliderInput(session, "nearby_matches", value = 100)
-      updateSliderInput(session, "find_price_range", 
-                       value = c(250000, 600000))
-      updateSliderInput(session, "find_sqft_range", 
-                       value = c(1000, 2000))
-      updateSliderInput(session, "find_bedrooms_range", 
-                       value = c(1, 2))
-      updateSliderInput(session, "find_bathrooms_range", 
-                       value = c(1, 2))
-      updateSliderInput(session, "find_year_built_range", 
-                       value = c(current_year - 25, current_year))
-      updateSelectInput(session, "find_garage", selected = "Yes")
-      updateSelectInput(session, "find_finished_basement", selected = "No")
-      updateSelectInput(session, "find_construction_grade", 
-                       selected = "Any")
-    }
-  })
-  
-  # Clear property finder
-  observeEvent(input$clear_find, {
-    find_it_coords(NULL)
-    find_it_data(NULL)
-    
-    leafletProxy("map_find") %>%
-      clearMarkers() %>%
-      clearShapes() %>%
-      setView(lng = -63.582687, lat = 44.651070, zoom = 12)
-    
-    updateRadioButtons(session, "buyer_profile", selected = character(0))
-    updateSliderInput(session, "nearby_matches", value = 100)
-    updateSliderInput(session, "find_price_range", 
-                     value = c(sales_res_char_assess$price_range[1], 
-                             sales_res_char_assess$price_range[2]))
-    updateSliderInput(session, "find_sqft_range", 
-                     value = c(sales_res_char_assess$sqft_range[1], 
-                             sales_res_char_assess$sqft_range[2]))
-    updateSliderInput(session, "find_bedrooms_range", 
-                     value = c(sales_res_char_assess$bedrooms_range[1], 
-                             sales_res_char_assess$bedrooms_range[2]))
-    updateSliderInput(session, "find_bathrooms_range", 
-                     value = c(sales_res_char_assess$bathrooms_range[1], 
-                             sales_res_char_assess$bathrooms_range[2]))
-    updateSliderInput(session, "find_year_built_range", 
-                     value = c(sales_res_char_assess$year_built_range[1], 
-                             sales_res_char_assess$year_built_range[2]))
-    updateSelectInput(session, "find_garage", selected = "Any")
-    updateSelectInput(session, "find_finished_basement", selected = "Any")
-    updateSelectInput(session, "find_construction_grade", selected = "Any")
-  })
-  
   # Sale finder functionality
   observeEvent(input$map_sale_click, {
     if (input$sale_filter_type == "Area") {
       click <- input$map_sale_click
       sale_coords(c(click$lng, click$lat))
       
-      sale_selected_area(list(
-        center = c(click$lng, click$lat),
-        radius = input$sale_radius
-      ))
+      # Show loading indicator
+      shinyjs::show("loading_sale")
       
+      # Create point and buffer for spatial filtering
+      point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
+      buffer <- st_buffer(point, dist = input$sale_radius)
+      
+      # Filter data for selected area
+      filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ] %>%
+        filter(
+          Sale.Year >= input$sale_year_range[1],
+          Sale.Year <= input$sale_year_range[2]
+        )
+      
+      # Update map with circle and markers
       leafletProxy("map_sale") %>%
         clearShapes() %>%
         addCircles(
           lng = click$lng, 
           lat = click$lat,
           radius = input$sale_radius,
-          color = "#1E88E5",
+          color = "#2F6B52",
           fill = TRUE, 
           fillOpacity = 0.2
         )
+      
+      if (nrow(filtered_data) > 0) {
+        leafletProxy("map_sale") %>%
+          addCircleMarkers(
+            lng = filtered_data$i.X.Map.Coordinate,
+            lat = filtered_data$i.Y.Map.Coordinate,
+            radius = 6,
+            color = "#2F6B52",
+            fillOpacity = 0.8,
+            stroke = FALSE,
+            popup = paste(
+              "<div style='max-height: 300px; overflow-y: auto;'>",
+              "<b>Sale Information</b><br>",
+              "Year:", filtered_data$Sale.Year, "<br>",
+              "Sale Price: $", format(filtered_data$Sale.Price, big.mark = ","), "<br>",
+              "Assessed Value: $", format(filtered_data$Assessed.Value, big.mark = ","), "<br>",
+              "<br><b>Location</b><br>",
+              "Street:", filtered_data$Civic.Street.Name, "<br>",
+              "City:", filtered_data$Civic.City.Name, "<br>",
+              "Postal Code:", filtered_data$Postal.Codes, "<br>",
+              "<br><b>Property Details</b><br>",
+              "Living Units:", filtered_data$Living.Units, "<br>",
+              "Year Built:", filtered_data$Year.Built, "<br>",
+              "Square Feet:", format(filtered_data$Square.Foot.Living.Area, big.mark = ","), " sq ft<br>",
+              "Style:", filtered_data$Style, "<br>",
+              "Bedrooms:", filtered_data$Bedrooms, "<br>",
+              "Bathrooms:", filtered_data$Bathrooms, "<br>",
+              "<br><b>Links</b><br>",
+              "<a href='https://www.google.com/maps/search/?api=1&query=", 
+              filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
+              "' target='_blank'>View on Google Maps</a><br>",
+              "<a href='https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", 
+              filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
+              "' target='_blank'>Open Street View</a>",
+              "</div>"
+            )
+          )
+          
+        # Fit bounds to show all markers
+        leafletProxy("map_sale") %>%
+          fitBounds(
+            lng1 = min(filtered_data$i.X.Map.Coordinate), lat1 = min(filtered_data$i.Y.Map.Coordinate),
+            lng2 = max(filtered_data$i.X.Map.Coordinate), lat2 = max(filtered_data$i.Y.Map.Coordinate)
+          )
+      }
+      
+      # Hide loading indicator
+      shinyjs::hide("loading_sale")
+      
+      # Store area for find_sales button
+      sale_selected_area(list(
+        center = c(click$lng, click$lat),
+        radius = input$sale_radius
+      ))
     }
   })
   
@@ -463,5 +426,244 @@ server <- function(input, output, session) {
     updateTextInput(session, "sale_street_name", value = "")
     updateTextInput(session, "sale_postal_code", value = "")
     updateTextInput(session, "sale_postal_code_3digit", value = "")
+  })
+  
+  # Clear property finder
+  observeEvent(input$clear_find, {
+    find_it_coords(NULL)
+    find_it_data(NULL)
+    
+    leafletProxy("map_find") %>%
+      clearMarkers() %>%
+      clearShapes() %>%
+      setView(lng = -63.582687, lat = 44.651070, zoom = 12)
+    
+    updateRadioButtons(session, "buyer_profile", selected = character(0))
+    updateSliderInput(session, "nearby_matches", value = 100)
+    updateSliderInput(session, "find_price_range", 
+                     value = c(sales_res_char_assess$price_range[1], 
+                             sales_res_char_assess$price_range[2]))
+    updateSliderInput(session, "find_sqft_range", 
+                     value = c(sales_res_char_assess$sqft_range[1], 
+                             sales_res_char_assess$sqft_range[2]))
+    updateSliderInput(session, "find_bedrooms_range", 
+                     value = c(sales_res_char_assess$bedrooms_range[1], 
+                             sales_res_char_assess$bedrooms_range[2]))
+    updateSliderInput(session, "find_bathrooms_range", 
+                     value = c(sales_res_char_assess$bathrooms_range[1], 
+                             sales_res_char_assess$bathrooms_range[2]))
+    updateSliderInput(session, "find_year_built_range", 
+                     value = c(sales_res_char_assess$year_built_range[1], 
+                             sales_res_char_assess$year_built_range[2]))
+    updateSelectInput(session, "find_garage", selected = "Any")
+    updateSelectInput(session, "find_finished_basement", selected = "Any")
+    updateSelectInput(session, "find_construction_grade", selected = "Any")
+  })
+
+  # Handle analytics map clicks
+  observeEvent(input$map_analytics_click, {
+    click <- input$map_analytics_click
+    analytics_coords(c(click$lng, click$lat))
+    
+    # Update map with selection circle
+    leafletProxy("map_analytics") %>%
+      clearShapes() %>%
+      addCircles(
+        lng = click$lng, 
+        lat = click$lat,
+        radius = input$analytics_radius,
+        color = "#1E88E5",
+        fill = TRUE, 
+        fillOpacity = 0.2
+      )
+    
+    # Filter data for selected area
+    point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
+    buffer <- st_buffer(point, dist = input$analytics_radius)
+    filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ]
+    analytics_data(filtered_data)
+  })
+  
+  # Render price/assessment heatmap
+  output$heatmap_plot <- renderPlot({
+    data <- if (!is.null(analytics_data())) analytics_data() else sales_sf
+    
+    # Calculate price/assessment ratio and remove NAs/infinites
+    data$ratio <- data$Sale.Price / data$Assessed.Value
+    data <- data[is.finite(data$ratio) & !is.na(data$ratio), ]
+    
+    # Set limits for better visualization
+    ratio_limits <- quantile(data$ratio, c(0.05, 0.95), na.rm = TRUE)
+    
+    if (input$heatmap_type) {  # TRUE = Hexagonal
+      ggplot(data, aes(x = i.X.Map.Coordinate, y = i.Y.Map.Coordinate)) +
+        geom_hex(aes(fill = ratio), bins = 30) +
+        scale_fill_viridis_c(
+          name = "Price/Assessment\nRatio",
+          limits = ratio_limits
+        ) +
+        theme_minimal() +
+        labs(
+          x = "Longitude", 
+          y = "Latitude",
+          title = if (!is.null(analytics_data())) "Selected Area" else "All Nova Scotia"
+        ) +
+        theme(
+          legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10)),
+          aspect.ratio = 2
+        )
+    } else {
+      ggplot(data, aes(x = i.X.Map.Coordinate, y = i.Y.Map.Coordinate)) +
+        stat_density_2d_filled(aes(fill = after_stat(level)), contour_var = "density") +
+        scale_fill_viridis_d(name = "Density") +
+        theme_minimal() +
+        labs(
+          x = "Longitude", 
+          y = "Latitude",
+          title = if (!is.null(analytics_data())) "Selected Area" else "All Nova Scotia"
+        ) +
+        theme(
+          legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10)),
+          aspect.ratio = 2
+        )
+    }
+  })
+  
+  # Render sales price trends
+  output$price_trends_plot <- renderPlot({
+    # Get both NS and selected area data
+    ns_data <- sales_sf %>%
+      group_by(Sale.Year) %>%
+      summarise(
+        avg_price = mean(Sale.Price, na.rm = TRUE),
+        median_price = median(Sale.Price, na.rm = TRUE),
+        n = n(),
+        .groups = 'drop'
+      )
+    
+    selected_data <- if (!is.null(analytics_data())) {
+      analytics_data() %>%
+        group_by(Sale.Year) %>%
+        summarise(
+          avg_price = mean(Sale.Price, na.rm = TRUE),
+          median_price = median(Sale.Price, na.rm = TRUE),
+          n = n(),
+          .groups = 'drop'
+        )
+    } else {
+      NULL
+    }
+    
+    price_metric <- if(input$price_metric) "median_price" else "avg_price"
+    metric_label <- if(input$price_metric) "Median" else "Average"
+    y_col <- sym(price_metric)
+    
+    p <- ggplot() +
+      geom_point(data = ns_data, aes(x = Sale.Year, y = !!y_col), 
+                color = "#2F6B52", alpha = 0.5) +
+      geom_smooth(data = ns_data, aes(x = Sale.Year, y = !!y_col),
+                 method = "loess", se = TRUE, color = "#2F6B52", fill = "#2F6B52", alpha = 0.1)
+    
+    if (!is.null(selected_data)) {
+      p <- p +
+        geom_point(data = selected_data, aes(x = Sale.Year, y = !!y_col),
+                  color = "#1E88E5", alpha = 0.5) +
+        geom_smooth(data = selected_data, aes(x = Sale.Year, y = !!y_col),
+                   method = "loess", se = TRUE, color = "#1E88E5", fill = "#1E88E5", alpha = 0.1)
+    }
+    
+    p + theme_minimal() +
+      labs(
+        x = "Year", 
+        y = paste(metric_label, "Sale Price ($)"),
+        title = "Price Trends Comparison"
+      ) +
+      annotate("text", x = max(ns_data$Sale.Year), y = Inf,
+               label = "NS Average", color = "#2F6B52", 
+               hjust = 1, vjust = 2, size = 3.5) +
+      {if (!is.null(selected_data)) 
+        annotate("text", x = max(selected_data$Sale.Year), 
+                y = max(c(selected_data[[price_metric]], ns_data[[price_metric]])),
+                label = "Selected Area", color = "#1E88E5",
+                hjust = 1, vjust = 1, size = 3.5)} +
+      scale_y_continuous(labels = scales::dollar_format()) +
+      theme(
+        legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10))
+      )
+  })
+  
+  # Render seasonal patterns
+  output$seasonal_plot <- renderPlot({
+    # Get both NS and selected area data
+    ns_data <- sales_sf %>%
+      mutate(Month = month(Sale.Date)) %>%
+      group_by(Month) %>%
+      summarise(
+        count = n(),
+        avg_price = mean(Sale.Price, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(type = "Nova Scotia")
+    
+    selected_data <- if (!is.null(analytics_data())) {
+      analytics_data() %>%
+        mutate(Month = month(Sale.Date)) %>%
+        group_by(Month) %>%
+        summarise(
+          count = n(),
+          avg_price = mean(Sale.Price, na.rm = TRUE),
+          .groups = 'drop'
+        ) %>%
+        mutate(type = "Selected Area")
+    } else {
+      NULL
+    }
+    
+    # Combine data
+    plot_data <- if (!is.null(selected_data)) {
+      bind_rows(ns_data, selected_data)
+    } else {
+      ns_data
+    }
+    
+    # Create plot with two y-axes for count and price
+    ggplot(plot_data) +
+      # Area for price trends
+      geom_area(aes(x = Month, y = scale(avg_price)[,1] * max(count) * 0.75,
+                    fill = type, group = type), alpha = 0.2) +
+      # Lines for counts
+      geom_line(aes(x = Month, y = count, color = type), 
+                size = 1.2, linetype = "solid") +
+      # Add points
+      geom_point(aes(x = Month, y = count, color = type),
+                size = 3, alpha = 0.6) +
+      # Set scales
+      scale_color_manual(values = c("Nova Scotia" = "#2F6B52", "Selected Area" = "#1E88E5")) +
+      scale_fill_manual(values = c("Nova Scotia" = "#2F6B52", "Selected Area" = "#1E88E5")) +
+      scale_x_continuous(breaks = 1:12, labels = month.abb) +
+      # Add secondary y-axis for price
+      scale_y_continuous(
+        name = "Number of Sales",
+        sec.axis = sec_axis(
+          ~. / (max(plot_data$count) * 0.75) * diff(range(plot_data$avg_price)) + min(plot_data$avg_price),
+          name = "Average Sale Price ($)",
+          labels = scales::dollar_format()
+        )
+      ) +
+      labs(
+        color = NULL, 
+        fill = NULL,
+        title = "Monthly Sales Patterns"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none",
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10))
+      )
   })
 }
