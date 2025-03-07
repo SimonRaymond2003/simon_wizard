@@ -5,6 +5,7 @@
 library(shiny)
 library(shinyjs)  # Load early to prevent masking warnings
 library(leaflet)
+library(leaflet.extras)  # For heatmap functionality
 library(sf)
 library(promises)
 library(future)
@@ -484,51 +485,23 @@ server <- function(input, output, session) {
     analytics_data(filtered_data)
   })
   
-  # Render price/assessment heatmap
-  output$heatmap_plot <- renderPlot({
+  # Render sales density heatmap
+  output$heatmap_plot <- renderLeaflet({
     data <- if (!is.null(analytics_data())) analytics_data() else sales_sf
     
-    # Calculate price/assessment ratio and remove NAs/infinites
-    data$ratio <- data$Sale.Price / data$Assessed.Value
-    data <- data[is.finite(data$ratio) & !is.na(data$ratio), ]
-    
-    # Set limits for better visualization
-    ratio_limits <- quantile(data$ratio, c(0.05, 0.95), na.rm = TRUE)
-    
-    if (input$heatmap_type) {  # TRUE = Hexagonal
-      ggplot(data, aes(x = i.X.Map.Coordinate, y = i.Y.Map.Coordinate)) +
-        geom_hex(aes(fill = ratio), bins = 30) +
-        scale_fill_viridis_c(
-          name = "Price/Assessment\nRatio",
-          limits = ratio_limits
-        ) +
-        theme_minimal() +
-        labs(
-          x = "Longitude", 
-          y = "Latitude",
-          title = if (!is.null(analytics_data())) "Selected Area" else "All Nova Scotia"
-        ) +
-        theme(
-          legend.position = "bottom",
-          plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10)),
-          aspect.ratio = 2
-        )
-    } else {
-      ggplot(data, aes(x = i.X.Map.Coordinate, y = i.Y.Map.Coordinate)) +
-        stat_density_2d_filled(aes(fill = after_stat(level)), contour_var = "density") +
-        scale_fill_viridis_d(name = "Density") +
-        theme_minimal() +
-        labs(
-          x = "Longitude", 
-          y = "Latitude",
-          title = if (!is.null(analytics_data())) "Selected Area" else "All Nova Scotia"
-        ) +
-        theme(
-          legend.position = "bottom",
-          plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10)),
-          aspect.ratio = 2
-        )
-    }
+    # Create a Leaflet map with grayscale base
+    leaflet(data) %>%
+      addProviderTiles("CartoDB.Positron") %>%  # Light grayscale basemap
+      setView(lng = -63.582687, lat = 44.651070, zoom = 8) %>%
+      addHeatmap(
+        data = data.frame(
+          lng = data$i.X.Map.Coordinate,
+          lat = data$i.Y.Map.Coordinate
+        ),
+        blur = 20,
+        max = 0.3,  # Reduced from 0.8 to make the heatmap less intense
+        radius = 12  # Slightly reduced radius
+      )
   })
   
   # Render sales price trends

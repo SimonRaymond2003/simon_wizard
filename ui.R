@@ -410,13 +410,8 @@ ui <- fluidPage(
                 column(
                   width = 12,
                   div(class = "section-card",
-                      div(style = "display: flex; justify-content: space-between; align-items: center;",
-                          h4("Price/Assessment", class = "section-header", style = "margin: 0;"),
-                          div(style = "display: flex; gap: 10px;",
-                              materialSwitch("heatmap_type", "Hexagonal", status = "primary", right = TRUE)
-                          )
-                      ),
-                      plotOutput("heatmap_plot", height = "325px")
+                      h4("Sales Density", class = "section-header"),
+                      leafletOutput("heatmap_plot", height = "325px")
                   )
                 )
               )
