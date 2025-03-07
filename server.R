@@ -30,6 +30,80 @@ server <- function(input, output, session) {
   analytics_coords <- reactiveVal(NULL)
   analytics_data <- reactiveVal(NULL)
   
+  buyer_profiles <- list(
+    young_prof = list(
+      price_range = c(200000, 400000),
+      sqft_range = c(700, 1500),
+      bedrooms_range = c(1, 2),
+      bathrooms_range = c(1, 2),
+      year_built_range = c(1990, 2024),
+      garage = "Any",
+      finished_basement = "Any",
+      construction_grade = "Average"
+    ),
+    new_family = list(
+      price_range = c(300000, 550000),
+      sqft_range = c(1000, 2000),
+      bedrooms_range = c(2, 3),
+      bathrooms_range = c(1, 3),
+      year_built_range = c(1980, 2024),
+      garage = "Yes",
+      finished_basement = "Any",
+      construction_grade = "Good"
+    ),
+    family = list(
+      price_range = c(350000, 650000),
+      sqft_range = c(1500, 3000),
+      bedrooms_range = c(3, 5),
+      bathrooms_range = c(2, 4),
+      year_built_range = c(1970, 2024),
+      garage = "Yes",
+      finished_basement = "Yes",
+      construction_grade = "Good"
+    ),
+    retiree = list(
+      price_range = c(250000, 500000),
+      sqft_range = c(1000, 2200),
+      bedrooms_range = c(2, 3),
+      bathrooms_range = c(1, 3),
+      year_built_range = c(1990, 2024),
+      garage = "Yes",
+      finished_basement = "Any",
+      construction_grade = "Good"
+    )
+  )
+  
+  # Update UI when buyer profile is selected
+  observeEvent(input$buyer_profile, {
+    if (!is.null(input$buyer_profile) && input$buyer_profile != "") {
+      profile <- buyer_profiles[[input$buyer_profile]]
+      
+      # Update UI elements with the selected profile's values
+      updateSliderInput(session, "find_price_range", 
+                        value = profile$price_range)
+      
+      updateSliderInput(session, "find_sqft_range", 
+                        value = profile$sqft_range)
+      
+      updateSliderInput(session, "find_bedrooms_range", 
+                        value = profile$bedrooms_range)
+      
+      updateSliderInput(session, "find_bathrooms_range", 
+                        value = profile$bathrooms_range)
+      
+      updateSliderInput(session, "find_year_built_range", 
+                        value = profile$year_built_range)
+      
+      updateSelectInput(session, "find_garage", 
+                        selected = profile$garage)
+      
+      updateSelectInput(session, "find_finished_basement", 
+                        selected = profile$finished_basement)
+      
+      updateSelectInput(session, "find_construction_grade", 
+                        selected = profile$construction_grade)
+    }
+  })
   # Initialize maps
   output$map_sale <- renderLeaflet({
     leaflet() %>%

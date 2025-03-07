@@ -284,8 +284,8 @@ ui <- fluidPage(
                  div(class = "buyer-profiles",
                      radioButtons("buyer_profile", "",
                                   choices = c(
-                                    "Young Professional/Couple" = "young_prof",
-                                    "New Family" = "new_family",
+                                    "Young Professional" = "young_prof",
+                                    "Couple without Childern" = "new_family",
                                     "Family with Children" = "family",
                                     "Retiree" = "retiree"
                                   ),
