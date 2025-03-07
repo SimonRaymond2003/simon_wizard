@@ -66,7 +66,7 @@ server <- function(input, output, session) {
         stroke = TRUE,
         weight = 2
       )
-
+    
     # Automatically search for nearby properties
     shinyjs::show("loading_find")
     find_inputs <- reactiveValuesToList(input)
@@ -229,21 +229,7 @@ server <- function(input, output, session) {
       click <- input$map_sale_click
       sale_coords(c(click$lng, click$lat))
       
-      # Show loading indicator
-      shinyjs::show("loading_sale")
-      
-      # Create point and buffer for spatial filtering
-      point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
-      buffer <- st_buffer(point, dist = input$sale_radius)
-      
-      # Filter data for selected area
-      filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ] %>%
-        filter(
-          Sale.Year >= input$sale_year_range[1],
-          Sale.Year <= input$sale_year_range[2]
-        )
-      
-      # Update map with circle and markers
+      # Show circle immediately after clicking
       leafletProxy("map_sale") %>%
         clearShapes() %>%
         addCircles(
@@ -255,59 +241,87 @@ server <- function(input, output, session) {
           fillOpacity = 0.2
         )
       
-      if (nrow(filtered_data) > 0) {
-        leafletProxy("map_sale") %>%
-          addCircleMarkers(
-            lng = filtered_data$i.X.Map.Coordinate,
-            lat = filtered_data$i.Y.Map.Coordinate,
-            radius = 6,
-            color = "#2F6B52",
-            fillOpacity = 0.8,
-            stroke = FALSE,
-            popup = paste(
-              "<div style='max-height: 300px; overflow-y: auto;'>",
-              "<b>Sale Information</b><br>",
-              "Year:", filtered_data$Sale.Year, "<br>",
-              "Sale Price: $", format(filtered_data$Sale.Price, big.mark = ","), "<br>",
-              "Assessed Value: $", format(filtered_data$Assessed.Value, big.mark = ","), "<br>",
-              "<br><b>Location</b><br>",
-              "Street:", filtered_data$Civic.Street.Name, "<br>",
-              "City:", filtered_data$Civic.City.Name, "<br>",
-              "Postal Code:", filtered_data$Postal.Codes, "<br>",
-              "<br><b>Property Details</b><br>",
-              "Living Units:", filtered_data$Living.Units, "<br>",
-              "Year Built:", filtered_data$Year.Built, "<br>",
-              "Square Feet:", format(filtered_data$Square.Foot.Living.Area, big.mark = ","), " sq ft<br>",
-              "Style:", filtered_data$Style, "<br>",
-              "Bedrooms:", filtered_data$Bedrooms, "<br>",
-              "Bathrooms:", filtered_data$Bathrooms, "<br>",
-              "<br><b>Links</b><br>",
-              "<a href='https://www.google.com/maps/search/?api=1&query=", 
-              filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
-              "' target='_blank'>View on Google Maps</a><br>",
-              "<a href='https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", 
-              filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
-              "' target='_blank'>Open Street View</a>",
-              "</div>"
+      # Show loading indicator
+      shinyjs::show("loading_sale")
+      
+      # Filter data for selected area in background
+      future({
+        # Create point and buffer for spatial filtering
+        point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
+        buffer <- st_buffer(point, dist = input$sale_radius)
+        
+        # Filter data for selected area
+        filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ] %>%
+          filter(
+            Sale.Year >= input$sale_year_range[1],
+            Sale.Year <= input$sale_year_range[2]
+          )
+        
+        return(filtered_data)
+      }, seed = TRUE) %...>% {
+        # After data is filtered, add markers
+        filtered_data <- .
+        
+        if (nrow(filtered_data) > 0) {
+          leafletProxy("map_sale") %>%
+            clearMarkers() %>%
+            addCircleMarkers(
+              lng = filtered_data$i.X.Map.Coordinate,
+              lat = filtered_data$i.Y.Map.Coordinate,
+              radius = 6,
+              color = "#2F6B52",
+              fillOpacity = 0.8,
+              stroke = FALSE,
+              popup = paste(
+                "<div style='max-height: 300px; overflow-y: auto;'>",
+                "<b>Sale Information</b><br>",
+                "Year:", filtered_data$Sale.Year, "<br>",
+                "Sale Price: $", format(filtered_data$Sale.Price, big.mark = ","), "<br>",
+                "Assessed Value: $", format(filtered_data$Assessed.Value, big.mark = ","), "<br>",
+                "<br><b>Location</b><br>",
+                "Street:", filtered_data$Civic.Street.Name, "<br>",
+                "City:", filtered_data$Civic.City.Name, "<br>",
+                "Postal Code:", filtered_data$Postal.Codes, "<br>",
+                "<br><b>Property Details</b><br>",
+                "Living Units:", filtered_data$Living.Units, "<br>",
+                "Year Built:", filtered_data$Year.Built, "<br>",
+                "Square Feet:", format(filtered_data$Square.Foot.Living.Area, big.mark = ","), " sq ft<br>",
+                "Style:", filtered_data$Style, "<br>",
+                "Bedrooms:", filtered_data$Bedrooms, "<br>",
+                "Bathrooms:", filtered_data$Bathrooms, "<br>",
+                "<br><b>Links</b><br>",
+                "<a href='https://www.google.com/maps/search/?api=1&query=", 
+                filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
+                "' target='_blank'>View on Google Maps</a><br>",
+                "<a href='https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=", 
+                filtered_data$i.Y.Map.Coordinate, ",", filtered_data$i.X.Map.Coordinate, 
+                "' target='_blank'>Open Street View</a>",
+                "</div>"
+              )
             )
-          )
           
-        # Fit bounds to show all markers
-        leafletProxy("map_sale") %>%
-          fitBounds(
-            lng1 = min(filtered_data$i.X.Map.Coordinate), lat1 = min(filtered_data$i.Y.Map.Coordinate),
-            lng2 = max(filtered_data$i.X.Map.Coordinate), lat2 = max(filtered_data$i.Y.Map.Coordinate)
-          )
+          # Fit bounds to show all markers
+          leafletProxy("map_sale") %>%
+            fitBounds(
+              lng1 = min(filtered_data$i.X.Map.Coordinate), lat1 = min(filtered_data$i.Y.Map.Coordinate),
+              lng2 = max(filtered_data$i.X.Map.Coordinate), lat2 = max(filtered_data$i.Y.Map.Coordinate)
+            )
+        }
+        
+        sale_data(filtered_data)
+        
+        # Store area for find_sales button
+        sale_selected_area(list(
+          center = c(click$lng, click$lat),
+          radius = input$sale_radius
+        ))
+        
+        # Hide loading indicator
+        shinyjs::hide("loading_sale")
+      } %...!% {
+        shinyjs::hide("loading_sale")
+        showNotification("An error occurred while searching.", type = "error")
       }
-      
-      # Hide loading indicator
-      shinyjs::hide("loading_sale")
-      
-      # Store area for find_sales button
-      sale_selected_area(list(
-        center = c(click$lng, click$lat),
-        radius = input$sale_radius
-      ))
     }
   })
   
@@ -442,31 +456,31 @@ server <- function(input, output, session) {
     updateRadioButtons(session, "buyer_profile", selected = character(0))
     updateSliderInput(session, "nearby_matches", value = 100)
     updateSliderInput(session, "find_price_range", 
-                     value = c(sales_res_char_assess$price_range[1], 
-                             sales_res_char_assess$price_range[2]))
+                      value = c(sales_res_char_assess$price_range[1], 
+                                sales_res_char_assess$price_range[2]))
     updateSliderInput(session, "find_sqft_range", 
-                     value = c(sales_res_char_assess$sqft_range[1], 
-                             sales_res_char_assess$sqft_range[2]))
+                      value = c(sales_res_char_assess$sqft_range[1], 
+                                sales_res_char_assess$sqft_range[2]))
     updateSliderInput(session, "find_bedrooms_range", 
-                     value = c(sales_res_char_assess$bedrooms_range[1], 
-                             sales_res_char_assess$bedrooms_range[2]))
+                      value = c(sales_res_char_assess$bedrooms_range[1], 
+                                sales_res_char_assess$bedrooms_range[2]))
     updateSliderInput(session, "find_bathrooms_range", 
-                     value = c(sales_res_char_assess$bathrooms_range[1], 
-                             sales_res_char_assess$bathrooms_range[2]))
+                      value = c(sales_res_char_assess$bathrooms_range[1], 
+                                sales_res_char_assess$bathrooms_range[2]))
     updateSliderInput(session, "find_year_built_range", 
-                     value = c(sales_res_char_assess$year_built_range[1], 
-                             sales_res_char_assess$year_built_range[2]))
+                      value = c(sales_res_char_assess$year_built_range[1], 
+                                sales_res_char_assess$year_built_range[2]))
     updateSelectInput(session, "find_garage", selected = "Any")
     updateSelectInput(session, "find_finished_basement", selected = "Any")
     updateSelectInput(session, "find_construction_grade", selected = "Any")
   })
-
-  # Handle analytics map clicks
+  
+  # Handle analytics map clicks - MODIFIED: Show circle immediately, then load data
   observeEvent(input$map_analytics_click, {
     click <- input$map_analytics_click
     analytics_coords(c(click$lng, click$lat))
     
-    # Update map with selection circle
+    # Show selection circle immediately
     leafletProxy("map_analytics") %>%
       clearShapes() %>%
       addCircles(
@@ -478,29 +492,39 @@ server <- function(input, output, session) {
         fillOpacity = 0.2
       )
     
-    # Filter data for selected area
-    point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
-    buffer <- st_buffer(point, dist = input$analytics_radius)
-    filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ]
-    analytics_data(filtered_data)
+    # Show loading indicator
+    shinyjs::show("loading_analytics")
+    
+    # THEN filter data in background
+    future({
+      # Create point and buffer for spatial filtering
+      point <- st_sfc(st_point(c(click$lng, click$lat)), crs = 4326)
+      buffer <- st_buffer(point, dist = input$analytics_radius)
+      filtered_data <- sales_sf[st_intersects(sales_sf, buffer, sparse = FALSE), ]
+      return(filtered_data)
+    }, seed = TRUE) %...>% {
+      analytics_data(.)
+      shinyjs::hide("loading_analytics")
+    } %...!% {
+      shinyjs::hide("loading_analytics")
+      showNotification("An error occurred while analyzing data.", type = "error")
+    }
   })
   
-  # Render sales density heatmap
+  # Render sales density heatmap - MODIFIED: Always use full dataset
   output$heatmap_plot <- renderLeaflet({
-    data <- if (!is.null(analytics_data())) analytics_data() else sales_sf
-    
-    # Create a Leaflet map with grayscale base
-    leaflet(data) %>%
+    # Always use complete dataset regardless of analytics selection
+    leaflet(sales_sf) %>%
       addProviderTiles("CartoDB.Positron") %>%  # Light grayscale basemap
       setView(lng = -63.582687, lat = 44.651070, zoom = 8) %>%
       addHeatmap(
         data = data.frame(
-          lng = data$i.X.Map.Coordinate,
-          lat = data$i.Y.Map.Coordinate
+          lng = sales_sf$i.X.Map.Coordinate,
+          lat = sales_sf$i.Y.Map.Coordinate
         ),
         blur = 20,
-        max = 0.3,  # Reduced from 0.8 to make the heatmap less intense
-        radius = 12  # Slightly reduced radius
+        max = 0.3,  # Reduced intensity
+        radius = 12
       )
   })
   
@@ -535,16 +559,16 @@ server <- function(input, output, session) {
     
     p <- ggplot() +
       geom_point(data = ns_data, aes(x = Sale.Year, y = !!y_col), 
-                color = "#2F6B52", alpha = 0.5) +
+                 color = "#2F6B52", alpha = 0.5) +
       geom_smooth(data = ns_data, aes(x = Sale.Year, y = !!y_col),
-                 method = "loess", se = TRUE, color = "#2F6B52", fill = "#2F6B52", alpha = 0.1)
+                  method = "loess", se = TRUE, color = "#2F6B52", fill = "#2F6B52", alpha = 0.1)
     
     if (!is.null(selected_data)) {
       p <- p +
         geom_point(data = selected_data, aes(x = Sale.Year, y = !!y_col),
-                  color = "#1E88E5", alpha = 0.5) +
+                   color = "#1E88E5", alpha = 0.5) +
         geom_smooth(data = selected_data, aes(x = Sale.Year, y = !!y_col),
-                   method = "loess", se = TRUE, color = "#1E88E5", fill = "#1E88E5", alpha = 0.1)
+                    method = "loess", se = TRUE, color = "#1E88E5", fill = "#1E88E5", alpha = 0.1)
     }
     
     p + theme_minimal() +
@@ -558,9 +582,9 @@ server <- function(input, output, session) {
                hjust = 1, vjust = 2, size = 3.5) +
       {if (!is.null(selected_data)) 
         annotate("text", x = max(selected_data$Sale.Year), 
-                y = max(c(selected_data[[price_metric]], ns_data[[price_metric]])),
-                label = "Selected Area", color = "#1E88E5",
-                hjust = 1, vjust = 1, size = 3.5)} +
+                 y = max(c(selected_data[[price_metric]], ns_data[[price_metric]])),
+                 label = "Selected Area", color = "#1E88E5",
+                 hjust = 1, vjust = 1, size = 3.5)} +
       scale_y_continuous(labels = scales::dollar_format()) +
       theme(
         legend.position = "none",
@@ -568,14 +592,13 @@ server <- function(input, output, session) {
       )
   })
   
-  # Render seasonal patterns
+  # Render seasonal patterns - MODIFIED: Focus only on price patterns
   output$seasonal_plot <- renderPlot({
     # Get both NS and selected area data
     ns_data <- sales_sf %>%
       mutate(Month = month(Sale.Date)) %>%
       group_by(Month) %>%
       summarise(
-        count = n(),
         avg_price = mean(Sale.Price, na.rm = TRUE),
         .groups = 'drop'
       ) %>%
@@ -586,7 +609,6 @@ server <- function(input, output, session) {
         mutate(Month = month(Sale.Date)) %>%
         group_by(Month) %>%
         summarise(
-          count = n(),
           avg_price = mean(Sale.Price, na.rm = TRUE),
           .groups = 'drop'
         ) %>%
@@ -602,39 +624,28 @@ server <- function(input, output, session) {
       ns_data
     }
     
-    # Create plot with two y-axes for count and price
+    # Create plot focused only on price patterns by month
     ggplot(plot_data) +
-      # Area for price trends
-      geom_area(aes(x = Month, y = scale(avg_price)[,1] * max(count) * 0.75,
-                    fill = type, group = type), alpha = 0.2) +
-      # Lines for counts
-      geom_line(aes(x = Month, y = count, color = type), 
+      geom_line(aes(x = Month, y = avg_price, color = type), 
                 size = 1.2, linetype = "solid") +
-      # Add points
-      geom_point(aes(x = Month, y = count, color = type),
-                size = 3, alpha = 0.6) +
+      geom_point(aes(x = Month, y = avg_price, color = type),
+                 size = 3, alpha = 0.6) +
       # Set scales
       scale_color_manual(values = c("Nova Scotia" = "#2F6B52", "Selected Area" = "#1E88E5")) +
-      scale_fill_manual(values = c("Nova Scotia" = "#2F6B52", "Selected Area" = "#1E88E5")) +
       scale_x_continuous(breaks = 1:12, labels = month.abb) +
-      # Add secondary y-axis for price
+      # Add y-axis formatting
       scale_y_continuous(
-        name = "Number of Sales",
-        sec.axis = sec_axis(
-          ~. / (max(plot_data$count) * 0.75) * diff(range(plot_data$avg_price)) + min(plot_data$avg_price),
-          name = "Average Sale Price ($)",
-          labels = scales::dollar_format()
-        )
+        name = "Average Sale Price ($)",
+        labels = scales::dollar_format()
       ) +
       labs(
         color = NULL, 
-        fill = NULL,
-        title = "Monthly Sales Patterns"
+        title = "Monthly Sale Price Patterns"
       ) +
       theme_minimal() +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "none",
+        legend.position = "top",
         panel.grid.minor = element_blank(),
         plot.title = element_text(hjust = 0.5, size = 11, face = "bold", margin = margin(b = 10))
       )

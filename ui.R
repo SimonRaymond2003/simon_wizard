@@ -376,9 +376,12 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         id = "tabs",
-        # Tab 1: Market Analytics
+        # Tab 1: Market Analytics - MODIFIED for Price-focused seasonal plot and independent heatmap
         tabPanel(
           "Market Analytics",
+          div(id = "loading_analytics", class = "loading",
+              div(class = "loading-wheel"),
+              div(class = "loading-text", "Analyzing market data...")),
           fluidRow(
             # Full width for plots
             column(
@@ -400,17 +403,21 @@ ui <- fluidPage(
                 column(
                   width = 6,
                   div(class = "section-card",
-                      h4("Seasonal Price Patterns", class = "section-header"),
+                      h4("Monthly Price Patterns", class = "section-header"),
+                      div(class = "info-text", style = "font-size: 0.9em; color: var(--text-secondary); margin-bottom: 10px;",
+                          "Average sale prices by month of the year."),
                       plotOutput("seasonal_plot", height = "325px")
                   )
                 )
               ),
-              # Bottom row with Price/Assessment plot
+              # Bottom row with Density heatmap
               fluidRow(
                 column(
                   width = 12,
                   div(class = "section-card",
-                      h4("Sales Density", class = "section-header"),
+                      h4("Province-wide Sales Density", class = "section-header"),
+                      div(class = "info-text", style = "font-size: 0.9em; color: var(--text-secondary); margin-bottom: 10px;",
+                          "This heatmap shows all sales density across Nova Scotia and is not affected by area selection."),
                       leafletOutput("heatmap_plot", height = "325px")
                   )
                 )
