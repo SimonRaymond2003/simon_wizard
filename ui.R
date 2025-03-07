@@ -421,6 +421,27 @@ ui <- fluidPage(
                       leafletOutput("heatmap_plot", height = "325px")
                   )
                 )
+              ),
+              # New row for price/assessment and storey distribution plots
+              fluidRow(
+                column(
+                  width = 6,
+                  div(class = "section-card",
+                      h4("Price/Assessment Value Trends", class = "section-header"),
+                      div(class = "info-text", style = "font-size: 0.9em; color: var(--text-secondary); margin-bottom: 10px;",
+                          "Sale price divided by assessment value over time"),
+                      plotOutput("price_assessment_plot", height = "325px")
+                  )
+                ),
+                column(
+                  width = 6,
+                  div(class = "section-card",
+                      h4("Property Style Distribution", class = "section-header"),
+                      div(class = "info-text", style = "font-size: 0.9em; color: var(--text-secondary); margin-bottom: 10px;",
+                          "Distribution of different property styles"),
+                      plotOutput("style_dist_plot", height = "325px")
+                  )
+                )
               )
             )
           )

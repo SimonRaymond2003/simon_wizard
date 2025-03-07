@@ -677,6 +677,155 @@ server <- function(input, output, session) {
         .groups = 'drop'
       ) %>%
       mutate(type = "Nova Scotia")
+      
+  # Render price/assessment ratio plot
+  output$price_assessment_plot <- renderPlot({
+    # Calculate ratio for all NS
+    ns_data <- sales_sf %>%
+      mutate(price_assess_ratio = Sale.Price / Assessed.Value) %>%
+      filter(!is.na(price_assess_ratio)) %>%
+      group_by(Sale.Year) %>%
+      summarise(
+        avg_ratio = mean(price_assess_ratio, na.rm = TRUE),
+        .groups = 'drop'
+      )
+    
+    # Calculate ratio for selected area if available
+    selected_data <- if (!is.null(analytics_data())) {
+      analytics_data() %>%
+        mutate(price_assess_ratio = Sale.Price / Assessed.Value) %>%
+        filter(!is.na(price_assess_ratio)) %>%
+        group_by(Sale.Year) %>%
+        summarise(
+          avg_ratio = mean(price_assess_ratio, na.rm = TRUE),
+          .groups = 'drop'
+        )
+    } else {
+      NULL
+    }
+    
+    # Create plot
+    p <- ggplot() +
+      geom_line(data = ns_data, aes(x = Sale.Year, y = avg_ratio),
+                color = "#2F6B52", size = 1) +
+      geom_point(data = ns_data, aes(x = Sale.Year, y = avg_ratio),
+                 color = "#2F6B52", size = 3, alpha = 0.6)
+    
+    if (!is.null(selected_data)) {
+      p <- p +
+        geom_line(data = selected_data, aes(x = Sale.Year, y = avg_ratio),
+                  color = "#1E88E5", size = 1) +
+        geom_point(data = selected_data, aes(x = Sale.Year, y = avg_ratio),
+                   color = "#1E88E5", size = 3, alpha = 0.6)
+    }
+    
+    p + theme_minimal() +
+      labs(
+        x = "Year",
+        y = "Price/Assessment Ratio",
+        title = "Price to Assessment Value Ratio Over Time"
+      ) +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 11, face = "bold"),
+        panel.grid.minor = element_blank()
+      ) +
+      scale_y_continuous(labels = scales::number_format(accuracy = 0.01))
+  })
+  
+  # Render style distribution plot
+  output$style_dist_plot <- renderPlot({
+    # Function to process style data
+    process_style_data <- function(data) {
+      data %>%
+        mutate(
+          # Extract numeric part from Style and handle .5
+          StoreyNum = as.numeric(gsub("([0-9.]+).*", "\\1", Style)),
+          # Round up .5 stories
+          StoreyNum = ceiling(StoreyNum),
+          # Group into categories
+          StyleGroup = case_when(
+            is.na(StoreyNum) ~ "Other",
+            StoreyNum == 1 ~ "1 Storey",
+            StoreyNum == 2 ~ "2 Storeys",
+            StoreyNum == 3 ~ "3 Storeys",
+            StoreyNum >= 4 ~ "4+ Storeys",
+            TRUE ~ "Other"
+          )
+        ) %>%
+        group_by(StyleGroup) %>%
+        summarise(count = n(), .groups = 'drop') %>%
+        mutate(
+          percentage = count / sum(count) * 100,
+          # Set factor levels for consistent ordering
+          StyleGroup = factor(StyleGroup, 
+                            levels = c("1 Storey", "2 Storeys", "3 Storeys", "4+ Storeys", "Other"))
+        ) %>%
+        arrange(StyleGroup)
+    }
+    
+    # Process NS data
+    ns_data <- process_style_data(sales_sf) %>%
+      mutate(type = "Nova Scotia")
+    
+    # Process selected area data if available
+    selected_data <- if (!is.null(analytics_data())) {
+      process_style_data(analytics_data()) %>%
+        mutate(type = "Selected Area")
+    }
+    
+    # Set up the plot
+    if (!is.null(selected_data)) {
+      # Two pie charts side by side
+      par(mfrow = c(1, 2))
+      
+      # Combine data
+      plot_data <- bind_rows(ns_data, selected_data)
+      
+      ggplot(plot_data, aes(x = type, y = percentage, fill = StyleGroup)) +
+        geom_bar(stat = "identity", width = 0.7) +
+        coord_polar("y", start = 0) +
+        facet_wrap(~type) +
+        scale_fill_brewer(palette = "Set3") +
+        theme_minimal() +
+        labs(
+          title = "Property Style Distribution",
+          fill = "Style"
+        ) +
+        theme(
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          plot.title = element_text(hjust = 0.5, size = 11, face = "bold"),
+          legend.position = "right",
+          strip.text = element_text(size = 11, face = "bold"),
+          panel.spacing = unit(2, "lines")
+        ) +
+        geom_text(data = . %>% filter(percentage >= 1),
+                  aes(label = sprintf("%d%%", round(percentage))),
+                  position = position_stack(vjust = 0.5))
+    } else {
+      # Single pie chart for NS only
+      ggplot(ns_data, aes(x = "", y = percentage, fill = StyleGroup)) +
+        geom_bar(stat = "identity", width = 1) +
+        coord_polar("y", start = 0) +
+        scale_fill_brewer(palette = "Set3") +
+        theme_minimal() +
+        labs(
+          title = "Property Style Distribution (Nova Scotia)",
+          fill = "Style"
+        ) +
+        theme(
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          plot.title = element_text(hjust = 0.5, size = 11, face = "bold"),
+          legend.position = "right"
+        ) +
+        geom_text(data = . %>% filter(percentage >= 1),
+                  aes(label = sprintf("%d%%", round(percentage))),
+                  position = position_stack(vjust = 0.5))
+    }
+  })
     
     selected_data <- if (!is.null(analytics_data())) {
       analytics_data() %>%
