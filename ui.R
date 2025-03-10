@@ -376,7 +376,40 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         id = "tabs",
-        # Tab 1: Market Analytics - MODIFIED for Price-focused seasonal plot and independent heatmap
+        # Tab 1: Sale Finder
+        tabPanel(
+          "Sale Finder",
+          div(id = "loading_sale", class = "loading",
+              div(class = "loading-wheel"),
+              div(class = "loading-text", "Finding sales data...")),
+          tags$div(
+            class = "instruction-box",
+            style = "text-align: center; border-left: none;",
+            tags$i(class = "fas fa-map-marker-alt", style = "margin-right: 8px;"),
+            "Click on the map to select an area or use the filters on the left"
+          ),
+          leafletOutput("map_sale", height = "700px")
+        ),
+        
+        # Tab 2: Property Finder
+        tabPanel(
+          "Property Finder",
+          fluidRow(
+            column(12,
+                   tags$div(class = "map-instruction instruction-box",
+                            style = "text-align: center;",
+                            tags$i(class = "fas fa-map-marker-alt", style = "color: var(--primary-color); margin-right: 8px;"),
+                            "Click anywhere on the map to drop a pin and find nearby matching properties"
+                   ),
+                   div(id = "loading_find", class = "loading",
+                       div(class = "loading-wheel"),
+                       div(class = "loading-text", "Finding nearby properties...")),
+                   leafletOutput("map_find", height = "700px")
+            )
+          )
+        ),
+        
+        # Tab 3: Market Analytics
         tabPanel(
           "Market Analytics",
           div(id = "loading_analytics", class = "loading",
@@ -443,38 +476,6 @@ ui <- fluidPage(
                   )
                 )
               )
-            )
-          )
-        ),
-        # Tab 2: Sale Finder
-        tabPanel(
-          "Sale Finder",
-          div(id = "loading_sale", class = "loading",
-              div(class = "loading-wheel"),
-              div(class = "loading-text", "Finding sales data...")),
-          tags$div(
-            class = "instruction-box",
-            style = "text-align: center; border-left: none;",
-            tags$i(class = "fas fa-map-marker-alt", style = "margin-right: 8px;"),
-            "Click on the map to select an area or use the filters on the left"
-          ),
-          leafletOutput("map_sale", height = "700px")
-        ),
-        
-        # Tab 3: Property Finder
-        tabPanel(
-          "Property Finder",
-          fluidRow(
-            column(12,
-                   tags$div(class = "map-instruction instruction-box",
-                            style = "text-align: center;",
-                            tags$i(class = "fas fa-map-marker-alt", style = "color: var(--primary-color); margin-right: 8px;"),
-                            "Click anywhere on the map to drop a pin and find nearby matching properties"
-                   ),
-                   div(id = "loading_find", class = "loading",
-                       div(class = "loading-wheel"),
-                       div(class = "loading-text", "Finding nearby properties...")),
-                   leafletOutput("map_find", height = "700px")
             )
           )
         )
